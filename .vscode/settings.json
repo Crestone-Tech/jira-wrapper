@@ -1,0 +1,36 @@
+{
+    // Python interpreter - use the venv Python
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv/Scripts/python.exe",
+    
+    // Pytest configuration
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestArgs": [
+        "tests",
+        "-v"
+    ],
+    
+    // Auto-detect pytest
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    
+    // Python path - include the project root
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}"
+    ],
+    
+    // Enable type checking
+    "python.analysis.typeCheckingMode": "basic",
+    
+    // Formatting (optional)
+    "python.formatting.provider": "none",
+    
+    // Linting (optional)
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    
+    // Terminal settings
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}"
+    }
+}
+
