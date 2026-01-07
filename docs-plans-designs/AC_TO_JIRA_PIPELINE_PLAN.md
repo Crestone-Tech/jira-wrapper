@@ -107,16 +107,26 @@ class ACToJiraMapping(BaseModel):
     ac_id: str
     jira_issue_key: str
     jira_issue_status: str
-    issue_type: str            # "Story" or "Sub-task"
-    parent_issue_key: Optional[str]  # For subtasks, the parent Story key
+    issue_type: str            # "Story"
+    epic_link_key: Optional[str]  # Epic key (via Epic Link field)
+    created_at: str
+    url: str
+
+class SectionToJiraMapping(BaseModel):
+    """Maps a section to a Jira Epic."""
+    section_id: str
+    jira_issue_key: str
+    jira_issue_status: str
+    issue_type: str            # "Epic"
     created_at: str
     url: str
 
 class JiraGenerationResult(BaseModel):
     """Result of generating Jira issues from ACs."""
-    mappings: List[ACToJiraMapping]
+    epic_mappings: List[SectionToJiraMapping]
+    story_mappings: List[ACToJiraMapping]
+    epics_created: int
     stories_created: int
-    subtasks_created: int
     skipped: int               # Already existing issues
 ```
 
@@ -131,20 +141,20 @@ class JiraGenerationResult(BaseModel):
   **Logic:**
   1. Load existing mappings from file (if exists) for idempotency
   2. For each section:
-     - Check if Story already exists (by section ID in label or custom field)
-     - If not, create Story:
+     - Check if Epic already exists (by section ID in label or custom field)
+     - If not, create Epic:
        - Summary: `{Section ID}) {Section Title}`
        - Description: Section overview + list of ACs
        - Labels: `["acceptance-criteria", f"section-{section_id}"]`
-       - Issue Type: `Story`
+       - Issue Type: `Epic`
      - For each AC in section:
-       - Check if Sub-task already exists (by AC ID)
-       - If not, create Sub-task:
+       - Check if Story already exists (by AC ID)
+       - If not, create Story:
          - Summary: `{AC ID}: {AC Title}`
          - Description: AC description
          - Labels: `["acceptance-criteria", f"ac-{ac_id.lower()}"]`
-         - Issue Type: `Sub-task`
-         - Parent: Story key
+         - Issue Type: `Story`
+         - Epic Link: Epic key (via custom field or Epic Link field)
   3. Save mappings to file (JSON)
   4. Return result
 
@@ -153,24 +163,34 @@ class JiraGenerationResult(BaseModel):
 - Format:
   ```json
   {
-    "AC-RUN-001": {
-      "jira_issue_key": "PROJ-123",
-      "jira_issue_status": "To Do",
-      "issue_type": "Sub-task",
-      "parent_issue_key": "PROJ-100",
-      "created_at": "2025-01-16T10:00:00Z",
-      "url": "https://..."
+    "sections": {
+      "A": {
+        "jira_issue_key": "PROJ-100",
+        "jira_issue_status": "To Do",
+        "issue_type": "Epic",
+        "created_at": "2025-01-16T10:00:00Z",
+        "url": "https://..."
+      }
     },
-    ...
+    "acceptance_criteria": {
+      "AC-RUN-001": {
+        "jira_issue_key": "PROJ-123",
+        "jira_issue_status": "To Do",
+        "issue_type": "Story",
+        "epic_link_key": "PROJ-100",
+        "created_at": "2025-01-16T10:00:00Z",
+        "url": "https://..."
+      }
+    }
   }
   ```
-- Before creating issue, check if AC ID exists in mappings
+- Before creating issue, check if section ID or AC ID exists in mappings
 - If exists, skip creation and fetch current status from Jira
 
 #### 2.2 Tests
 
-- Test Story creation
-- Test Sub-task creation with parent
+- Test Epic creation
+- Test Story creation with Epic Link
 - Test idempotency (skip existing)
 - Test mapping file persistence
 - Test error handling
@@ -383,29 +403,32 @@ jira-wrapper/
 ### Mappings File (`PROJ_ac_mappings.json`)
 ```json
 {
-  "AC-RUN-001": {
-    "jira_issue_key": "PROJ-123",
-    "jira_issue_status": "To Do",
-    "issue_type": "Sub-task",
-    "parent_issue_key": "PROJ-100",
-    "created_at": "2025-01-16T10:00:00Z",
-    "url": "https://your-domain.atlassian.net/browse/PROJ-123"
+  "sections": {
+    "A": {
+      "jira_issue_key": "PROJ-100",
+      "jira_issue_status": "To Do",
+      "issue_type": "Epic",
+      "created_at": "2025-01-16T10:00:00Z",
+      "url": "https://your-domain.atlassian.net/browse/PROJ-100"
+    }
   },
-  "AC-RUN-002": {
-    "jira_issue_key": "PROJ-124",
-    "jira_issue_status": "In Progress",
-    "issue_type": "Sub-task",
-    "parent_issue_key": "PROJ-100",
-    "created_at": "2025-01-16T10:01:00Z",
-    "url": "https://your-domain.atlassian.net/browse/PROJ-124"
-  },
-  "section-A": {
-    "jira_issue_key": "PROJ-100",
-    "jira_issue_status": "To Do",
-    "issue_type": "Story",
-    "parent_issue_key": null,
-    "created_at": "2025-01-16T10:00:00Z",
-    "url": "https://your-domain.atlassian.net/browse/PROJ-100"
+  "acceptance_criteria": {
+    "AC-RUN-001": {
+      "jira_issue_key": "PROJ-123",
+      "jira_issue_status": "To Do",
+      "issue_type": "Story",
+      "epic_link_key": "PROJ-100",
+      "created_at": "2025-01-16T10:00:00Z",
+      "url": "https://your-domain.atlassian.net/browse/PROJ-123"
+    },
+    "AC-RUN-002": {
+      "jira_issue_key": "PROJ-124",
+      "jira_issue_status": "In Progress",
+      "issue_type": "Story",
+      "epic_link_key": "PROJ-100",
+      "created_at": "2025-01-16T10:01:00Z",
+      "url": "https://your-domain.atlassian.net/browse/PROJ-124"
+    }
   }
 }
 ```
@@ -424,7 +447,7 @@ Generated: 2025-01-16 10:05:00
 | AC-RUN-002 | [PROJ-124](https://...) | In Progress | AC-RUN-002: Run Timestamps |
 | AC-RUN-003 | [PROJ-125](https://...) | To Do | AC-RUN-003: Repeatability |
 
-**Parent Story:** [PROJ-100](https://...) - A) Run Identity and Timing
+**Parent Epic:** [PROJ-100](https://...) - A) Run Identity and Timing
 
 ## Section B) Triggers and Entrypoints
 
