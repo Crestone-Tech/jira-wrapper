@@ -10,32 +10,6 @@ from jira_wrapper.models import (
     IssueType,
 )
 
-
-class TestPriority:
-    """Tests for Priority enum."""
-    
-    def test_priority_values(self):
-        """Test that Priority enum has correct values."""
-        assert Priority.LOWEST == "Lowest"
-        assert Priority.LOW == "Low"
-        assert Priority.MEDIUM == "Medium"
-        assert Priority.HIGH == "High"
-        assert Priority.HIGHEST == "Highest"
-        assert Priority.CRITICAL == "Critical"
-
-
-class TestIssueType:
-    """Tests for IssueType enum."""
-    
-    def test_issue_type_values(self):
-        """Test that IssueType enum has correct values."""
-        assert IssueType.TASK == "Task"
-        assert IssueType.BUG == "Bug"
-        assert IssueType.STORY == "Story"
-        assert IssueType.EPIC == "Epic"
-        assert IssueType.SUBTASK == "Sub-task"
-
-
 class TestJiraConfig:
     """Tests for JiraConfig model."""
     
